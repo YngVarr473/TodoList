@@ -1,4 +1,5 @@
 #include <atomic>
+#include <immintrin.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -7,11 +8,24 @@
 
 using json = nlohmann::json;
 
+int get_variant(int count) {
+    int variant;
+    std::string s;
+    std::getline(std::cin, s);
+
+    while (sscanf(s.c_str(), "%d", &variant) != 1 || variant < 1 || variant > count) {
+        std::cout << "Try again :<\n";
+        std::getline(std::cin, s);
+    }
+    return variant;
+}
+
+
 struct Task {
     std::string content;
     bool done;
 
-    Task(const std::string& content = nullptr, const bool done = false):
+    Task(const std::string& content = "", const bool done = false):
         content(content), done(done) {}
 };
 
@@ -25,11 +39,10 @@ void from_json(const json& j, Task& t) {
 }
 
 class TodoList {
-    friend void to_json();
-    friend void from_json();
-  public:
-    void addTask(const std::string& newTask) {
-        std::vector<Task> tasks;
+  private:
+    std::vector<Task> tasks;
+
+    void load_from_file() {
         std::ifstream inFile("tasks.json");
         if (inFile.is_open()) {
             json j;
@@ -39,29 +52,53 @@ class TodoList {
                     Task t;
                     t.content = item.at({"content"}).get<std::string>();
                     t.done = item.at({"done"}).get<bool>();
-                    tasks.push_back(t);
+                    TodoList::tasks.push_back(t);
                 }
             } catch (...) {
                 std::cerr << "Error cin json-file\n";
             }
         }
         inFile.close();
+    }
 
-        tasks.push_back(Task(newTask, false));
-
+    void save_to_file() {
         std::ofstream outFile("tasks.json");
+
         if (outFile.is_open()) {
             json j = tasks;
             outFile << j.dump(4);
         }
     }
 
-    void showTasks() {
+  public:
 
+    void addTask() {
+        std::string new_task;
+        std::getline(std::cin, new_task);
+
+        load_from_file();
+        tasks.push_back({new_task, false});
+        save_to_file();
+    }
+
+    void show_all_Tasks() {
+        load_from_file();
+        int i = 1;
+        for(auto &Item : tasks) {
+            std::cout << i << ". " <<Item.content << "-------" << Item.done << std::endl;
+            i++;
+        }
+    }
+
+    void mark_Task() {
+        std::cout << "Which Task will you choose?\n";
+        show_all_Tasks();
+        int index = get_variant(tasks.size());
+        tasks[index].done = true;
     }
 };
 
-void showMenu() {
+void print_menu() {
     std::cout << "\n======= TODO LIST =======\n";
     std::cout << "1. Show all tasks\n";
     std::cout << "2. Add a task\n";
@@ -72,21 +109,22 @@ void showMenu() {
     std::cout << "Chose an action: ";
 }
 
-void handler() {
-    int x;
-    std::cin >> x;
-    switch(x) {
-        case 2:
-            std::cout << "Enter the task:\n";
-            std::string task;
-            std::getline(std::cin, task);
-            TodoList::addTask(task);
-    }
-}
 
 int main() {
     setlocale(LC_ALL, "ru");
-    showMenu();
-    handler();
+
+    int variant;
+
+    do {
+        print_menu();
+
+        variant = get_variant(5);
+
+        switch (variant) {
+            case 1:
+        }
+
+    } while(variant != 5);
+
     return 0;
 }
