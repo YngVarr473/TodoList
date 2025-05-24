@@ -1,5 +1,3 @@
-#include <atomic>
-#include <immintrin.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -20,13 +18,12 @@ int get_variant(int count) {
     return variant;
 }
 
-
 struct Task {
     std::string content;
     bool done;
 
-    Task(const std::string& content = "", const bool done = false):
-        content(content), done(done) {}
+    Task(const std::string& content = "", const bool done = false)
+        : content(content), done(done) {}
 };
 
 void to_json(json& j, const Task& t) {
@@ -39,10 +36,11 @@ void from_json(const json& j, Task& t) {
 }
 
 class TodoList {
-  private:
+private:
     std::vector<Task> tasks;
 
     void load_from_file() {
+        tasks.clear();
         std::ifstream inFile("tasks.json");
         if (inFile.is_open()) {
             json j;
@@ -50,12 +48,12 @@ class TodoList {
                 inFile >> j;
                 for (const auto& item : j) {
                     Task t;
-                    t.content = item.at({"content"}).get<std::string>();
-                    t.done = item.at({"done"}).get<bool>();
-                    TodoList::tasks.push_back(t);
+                    t.content = item.at("content").get<std::string>();
+                    t.done = item.at("done").get<bool>();
+                    tasks.push_back(t);
                 }
             } catch (...) {
-                std::cerr << "Error cin json-file\n";
+                std::cerr << "Error reading JSON file\n";
             }
         }
         inFile.close();
@@ -63,38 +61,72 @@ class TodoList {
 
     void save_to_file() {
         std::ofstream outFile("tasks.json");
-
         if (outFile.is_open()) {
             json j = tasks;
             outFile << j.dump(4);
         }
     }
 
-  public:
+public:
+    TodoList() {
+        try {
+            load_from_file();
+        } catch (...) {
+            std::cerr << "Warning: could not load task from json file :<\n";
+        }
+    }
 
     void addTask() {
+        std::cout << "Enter new task:\n";
         std::string new_task;
         std::getline(std::cin, new_task);
-
-        load_from_file();
         tasks.push_back({new_task, false});
         save_to_file();
     }
 
     void show_all_Tasks() {
-        load_from_file();
+        if (tasks.empty()) {
+            std::cout << "No tasks yet.\n";
+            return;
+        }
+
         int i = 1;
-        for(auto &Item : tasks) {
-            std::cout << i << ". " <<Item.content << "-------" << Item.done << std::endl;
+        for (const auto& item : tasks) {
+            std::cout << i << ". " << item.content << " --- "
+                      << (item.done ? "[done]" : "[not done]") << '\n';
             i++;
         }
     }
 
     void mark_Task() {
-        std::cout << "Which Task will you choose?\n";
+        if (tasks.empty()) {
+            std::cout << "No tasks to mark.\n";
+            return;
+        }
+
+        std::cout << "Which task to mark done?\n";
         show_all_Tasks();
-        int index = get_variant(tasks.size());
+        int index = get_variant(tasks.size()) - 1;
         tasks[index].done = true;
+        save_to_file();
+    }
+
+    void delete_a_task() {
+        if (tasks.empty()) {
+            std::cout << "No tasks to delete.\n";
+            return;
+        }
+
+        std::cout << "Which task to delete?\n";
+        show_all_Tasks();
+        int index = get_variant(tasks.size()) - 1;
+        tasks.erase(tasks.begin() + index);
+        save_to_file();
+    }
+
+    void save_and_exit() {
+        save_to_file();
+        std::cout << "Tasks saved. Bye!\n";
     }
 };
 
@@ -106,25 +138,26 @@ void print_menu() {
     std::cout << "4. Delete a task\n";
     std::cout << "5. Save and exit\n";
     std::cout << "==========================\n";
-    std::cout << "Chose an action: ";
+    std::cout << "Choose an action: ";
 }
 
-
 int main() {
-    setlocale(LC_ALL, "ru");
-
+    TodoList todo;
     int variant;
 
     do {
         print_menu();
-
         variant = get_variant(5);
 
         switch (variant) {
-            case 1:
+            case 1: todo.show_all_Tasks(); break;
+            case 2: todo.addTask(); break;
+            case 3: todo.mark_Task(); break;
+            case 4: todo.delete_a_task(); break;
+            case 5: todo.save_and_exit(); break;
         }
 
-    } while(variant != 5);
+    } while (variant != 5);
 
     return 0;
 }
